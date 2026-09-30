@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movielog/theme/app_colors.dart';
 
 class StatItem extends StatelessWidget {
   const StatItem({super.key, required this.label, required this.value});
@@ -14,7 +15,7 @@ class StatItem extends StatelessWidget {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: colors.surface,
@@ -26,7 +27,10 @@ class StatItem extends StatelessWidget {
         children: [
           Text(label, style: textTheme.bodyMedium),
           const SizedBox(height: 4),
-          Text(value, style: textTheme.bodyLarge),
+          Text(
+            value,
+            style: textTheme.bodyLarge?.copyWith(color: AppColors.violet),
+          ),
         ],
       ),
     );
