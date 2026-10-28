@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Movie Room · 나의 영화 기록</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f4f5f7;color:#192132;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}header{background:#fff;border-bottom:1px solid #e5e7eb;padding:23px max(24px,calc((100vw - 1100px)/2));display:flex;align-items:center;justify-content:space-between}.brand{font-size:22px;font-weight:850;letter-spacing:-1px}.brand span{color:#6b50e8}.tag{font-size:13px;color:#727a89}main{max-width:1100px;margin:48px auto;padding:0 24px}.eyebrow{color:#6b50e8;font-size:12px;font-weight:800;letter-spacing:2px}h1{font-size:36px;letter-spacing:-1.5px;margin:12px 0}.intro{color:#737b89;line-height:1.7;margin-bottom:32px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:28px;box-shadow:0 5px 18px #19213204}.wide{grid-column:1/-1}h2{font-size:19px;margin:0 0 8px}.desc{color:#7a8290;font-size:14px;margin:0 0 24px}label{display:block;font-size:13px;font-weight:650;margin-bottom:9px}.row{display:flex;gap:10px}input{min-width:0;flex:1;border:1px solid #dce0e7;border-radius:9px;padding:13px;font:inherit;font-size:14px;outline:none}input:focus{border-color:#7158e8;box-shadow:0 0 0 3px #7158e818}button{border:0;border-radius:9px;background:#6b50e8;color:white;padding:12px 19px;font:inherit;font-size:14px;font-weight:650;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.result{margin-top:18px;padding:14px;background:#f5f4fc;border-radius:9px;font-size:14px;line-height:1.6;overflow-wrap:anywhere}.error{background:#fff0f0;color:#b33434}.success{color:#227447;background:#eef9f2}.details{margin-top:14px;font-size:12px;color:#7a8290}code{font-family:ui-monospace,monospace}pre{margin:10px 0 0;padding:15px;background:#192132;color:#dce4f4;border-radius:9px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;max-height:300px;overflow:auto}.rating{border-top:1px solid #e8eaf0;padding:16px 0}.rating strong{display:block;margin-bottom:5px}.rating p{margin:7px 0;color:#657083}.score{color:#7954d8;font-weight:750}footer{margin:30px 0;color:#9197a2;font-size:12px}@media(max-width:650px){.grid{grid-template-columns:1fr}main{margin-top:30px}h1{font-size:29px}.card{padding:22px}.tag{display:none}.row{flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+  <header><div class="brand">Movie<span>Room.</span></div><div class="tag">당신의 취향이 모이는 공간</div></header>
+  <main>
+    <div class="eyebrow">MY MOVIE SPACE</div>
+    <h1>나의 영화 기록을 만나보세요.</h1>
+    <p class="intro">사용할 닉네임과 이메일을 확인하고, 회원이 남긴 영화 평점을 찾아보세요.</p>
+    <div class="grid">
+      <section class="card">
+        <h2>닉네임 확인</h2><p class="desc">나만의 닉네임을 사용할 수 있는지 확인해요.</p>
+        <form id="nickname-form"><label for="nickname">닉네임</label><div class="row"><input id="nickname" value="noco" required placeholder="닉네임을 입력하세요"><button>중복 확인</button></div></form>
+        <div id="nickname-result" aria-live="polite"></div>
+      </section>
+      <section class="card">
+        <h2>이메일 확인</h2><p class="desc">가입에 사용할 이메일의 중복 여부를 확인해요.</p>
+        <form id="email-form"><label for="email">이메일 주소</label><div class="row"><input id="email" type="email" value="test@example.com" required placeholder="you@example.com"><button>중복 확인</button></div></form>
+        <div id="email-result" aria-live="polite"></div>
+      </section>
+      <section class="card wide">
+        <h2>회원의 영화 평점</h2><p class="desc">회원 번호로 지금까지 남긴 평점과 감상을 확인해요.</p>
+        <form id="ratings-form"><label for="memberId">회원 번호</label><div class="row"><input id="memberId" type="number" min="1" step="1" value="1" required><button>평점 조회</button></div></form>
+        <div id="ratings-result" aria-live="polite"></div>
+      </section>
+    </div>
+    <footer>Movie Room · 나만의 영화 취향 기록</footer>
+  </main>
+  <script>
+    const API = 'http://localhost:3000';
+    const element = (tag, text, className) => { const el = document.createElement(tag); el.textContent = text; if(className) el.className = className; return el; };
+    async function callApi(form, target, path, render) {
+      const button = form.querySelector('button');
+      button.disabled = true;
+      target.replaceChildren(element('div', '조회 중이에요…', 'result'));
+      const url = API + path;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        target.replaceChildren();
+        if (response.ok) render(data, target);
+        else target.append(element('div', typeof data.message === 'string' ? data.message : JSON.stringify(data.message ?? data), 'result error'));
+        target.append(element('div', `GET ${url} · HTTP ${response.status}`, 'details'));
+        const details = document.createElement('details');
+        details.className = 'details';
+        details.open = true;
+        details.append(element('summary', '서버 응답 JSON'), element('pre', JSON.stringify(data, null, 2)));
+        target.append(details);
+      } catch (error) {
+        target.replaceChildren(element('div', '서버에 연결할 수 없어요. 백엔드 실행 상태와 CORS 설정을 확인해 주세요.', 'result error'), element('div', `GET ${url}`, 'details'));
+      } finally { button.disabled = false; }
+    }
+    for (const kind of ['nickname', 'email']) {
+      const form = document.getElementById(`${kind}-form`);
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const value = document.getElementById(kind).value.trim();
+        if (!value) return;
+        callApi(form, document.getElementById(`${kind}-result`), `/members/${kind}/${encodeURIComponent(value)}`, (data, target) => {
+          const label = kind === 'nickname' ? '닉네임' : '이메일';
+          target.append(element('div', data.available ? `사용할 수 있는 ${label}이에요.` : `이미 사용 중인 ${label}이에요.`, `result ${data.available ? 'success' : 'error'}`));
+        });
+      });
+    }
+    const ratingsForm = document.getElementById('ratings-form');
+    ratingsForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const id = document.getElementById('memberId').value;
+      callApi(ratingsForm, document.getElementById('ratings-result'), `/members/${encodeURIComponent(id)}/ratings`, (data, target) => {
+        target.append(element('div', data.length ? `총 ${data.length}개의 영화 기록을 찾았어요.` : '아직 작성한 평점이 없어요.', 'result success'));
+        for (const rating of data) {
+          const item = element('article', '', 'rating');
+          item.append(element('strong', `영화 #${rating.movieId}`), element('span', `평점 ${rating.score}`, 'score'), element('p', rating.comment || '남긴 감상이 없어요.'));
+          target.append(item);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
