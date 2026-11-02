@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:movielog/theme/app_colors.dart';
 import 'package:movielog/widgets/stat_item.dart';
@@ -55,19 +56,6 @@ class ProfileBody extends StatelessWidget {
             style: textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
-          Center(
-            child: OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.violet,
-                side: const BorderSide(color: AppColors.violet),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('프로필 수정'),
-            ),
-          ),
           const SizedBox(height: 24),
           const Row(
             children: [
@@ -83,6 +71,26 @@ class ProfileBody extends StatelessWidget {
                 child: StatItem(label: '즐겨찾기', value: '58'),
               ),
             ],
+          ),
+          const SizedBox(height: 20),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.lightviolet),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListTile(
+              title: const Text('내가 등록한 평점'),
+              trailing: const Icon(
+                Icons.chevron_right,
+                color: AppColors.violet,
+              ),
+              onTap: () => context.push('/my/ratings'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '학습용 memberId 1의 공개 평점을 조회합니다.\n프로필과 통계 수치는 디자인 예시입니다.',
+            style: TextStyle(fontSize: 12, color: AppColors.gray),
           ),
           const SizedBox(height: 32),
 

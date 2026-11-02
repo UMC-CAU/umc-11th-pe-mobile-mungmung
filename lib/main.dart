@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:movielog/core/network/tmdb_client.dart';
+import 'package:movielog/app/movie_log_app.dart';
+export 'package:movielog/app/movie_log_app.dart';
 import 'package:movielog/models/movie.dart';
-import 'package:movielog/theme/app_theme.dart';
 export 'package:movielog/models/movie.dart';
-import 'package:movielog/data/services/tmdb_movie_service.dart';
-import 'package:movielog/router/app_router.dart';
 import 'package:movielog/screens/profile_screen.dart';
 import 'package:movielog/theme/app_colors.dart';
 import 'package:movielog/view_models/movie_home_view_model.dart';
@@ -19,25 +17,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
   runApp(const MovieLogApp());
-}
-
-class MovieLogApp extends StatelessWidget {
-  const MovieLogApp({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        Provider<TmdbMovieService>(
-          create: (_) => TmdbMovieService(createTmdbClient()),
-        ),
-      ],
-      child: MaterialApp.router(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        routerConfig: AppRouter.router,
-      ),
-    );
-  }
 }
 
 class OnboardingScreen extends StatelessWidget {

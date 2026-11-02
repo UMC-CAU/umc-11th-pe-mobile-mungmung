@@ -1,12 +1,22 @@
+import 'package:provider/provider.dart';
+import 'package:movielog/core/network/movie_log_client.dart';
+import 'package:movielog/data/services/member_check_service.dart';
+import 'package:movielog/view_models/signup_view_model.dart';
+import 'package:movielog/widgets/movielog_button.dart';
 import 'package:flutter/material.dart';
 import 'package:movielog/theme/app_colors.dart';
 import 'package:movielog/theme/app_spacing.dart';
 import 'package:movielog/theme/app_text_styles.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key, this.onSignupComplete});
+  const SignupScreen({
+    super.key,
+    this.onSignupComplete,
+    this.memberCheckService,
+  });
 
   final VoidCallback? onSignupComplete;
+  final MemberCheckService? memberCheckService;
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -20,6 +30,16 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordFocusNode = FocusNode();
   final Set<String> _interactedFields = {};
 
+  late final SignUpViewModel _viewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewModel = SignUpViewModel(
+      widget.memberCheckService ?? MemberCheckService(createMovieLogClient()),
+    );
+  }
+
   bool _agreedToTerms = false;
   bool _submitted = false;
 
@@ -27,10 +47,13 @@ class _SignupScreenState extends State<SignupScreen> {
       _nicknameController.text.trim().length >= 2 &&
       _isValidEmail(_emailController.text.trim()) &&
       _passwordController.text.length >= 8 &&
-      _agreedToTerms;
+      _agreedToTerms &&
+      _viewModel.nicknameCheckStatus == CheckStatus.available &&
+      _viewModel.emailCheckStatus == CheckStatus.available;
 
   @override
   void dispose() {
+    _viewModel.dispose();
     _nicknameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -45,7 +68,7 @@ class _SignupScreenState extends State<SignupScreen> {
   void _submit() {
     setState(() => _submitted = true);
     final isFormValid = _formKey.currentState!.validate();
-    if (!_agreedToTerms || !isFormValid) return;
+    if (!_canSubmit || !isFormValid) return;
     FocusManager.instance.primaryFocus?.unfocus();
     widget.onSignupComplete?.call();
   }
@@ -57,8 +80,18 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return ChangeNotifierProvider<SignUpViewModel>.value(
+      value: _viewModel,
+      child: Consumer<SignUpViewModel>(
+        builder: (context, viewModel, child) =>
+            _buildScreen(context, viewModel),
+      ),
+    );
+  }
+
+  Widget _buildScreen(BuildContext context, SignUpViewModel viewModel) {
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -114,7 +147,23 @@ class _SignupScreenState extends State<SignupScreen> {
                           }
                           return null;
                         },
-                        onChanged: (_) => _refresh('닉네임'),
+                        onChanged: (value) {
+                          viewModel.onNicknameChanged(value);
+                          _refresh('닉네임');
+                        },
+                        errorText: viewModel.nicknameErrorText,
+                        checkStatus: viewModel.nicknameCheckStatus,
+                        checkButton: MovieLogButton(
+                          label: '중복 확인',
+                          isLoading:
+                              viewModel.nicknameCheckStatus ==
+                              CheckStatus.checking,
+                          onPressed: viewModel.canCheckNickname
+                              ? () => viewModel.checkNickname(
+                                  _nicknameController.text,
+                                )
+                              : null,
+                        ),
                         onFieldSubmitted: (_) =>
                             FocusScope.of(context).nextFocus(),
                       ),
@@ -133,7 +182,22 @@ class _SignupScreenState extends State<SignupScreen> {
                           }
                           return null;
                         },
-                        onChanged: (_) => _refresh('이메일'),
+                        onChanged: (value) {
+                          viewModel.onEmailChanged(value);
+                          _refresh('이메일');
+                        },
+                        errorText: viewModel.emailErrorText,
+                        checkStatus: viewModel.emailCheckStatus,
+                        checkButton: MovieLogButton(
+                          label: '중복 확인',
+                          isLoading:
+                              viewModel.emailCheckStatus ==
+                              CheckStatus.checking,
+                          onPressed: viewModel.canCheckEmail
+                              ? () =>
+                                    viewModel.checkEmail(_emailController.text)
+                              : null,
+                        ),
                         onFieldSubmitted: (_) =>
                             _passwordFocusNode.requestFocus(),
                       ),
@@ -170,23 +234,10 @@ class _SignupScreenState extends State<SignupScreen> {
                             setState(() => _agreedToTerms = value ?? false),
                       ),
                       const SizedBox(height: AppSpacing.x2),
-                      SizedBox(
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: _canSubmit ? _submit : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.violet,
-                            disabledBackgroundColor: AppColors.lightviolet,
-                            disabledForegroundColor: AppColors.white,
-                            foregroundColor: AppColors.white,
-                          ),
-                          child: Text(
-                            '가입하기',
-                            style: AppTextStyles.bodyLarge.copyWith(
-                              color: AppColors.white,
-                            ),
-                          ),
-                        ),
+                      MovieLogButton(
+                        label: '가입하기',
+                        width: double.infinity,
+                        onPressed: _canSubmit ? _submit : null,
                       ),
                       const SizedBox(height: 48),
                       Center(
@@ -233,14 +284,21 @@ class _SignupScreenState extends State<SignupScreen> {
     required String? Function(String?) validator,
     required ValueChanged<String> onChanged,
     required TextInputAction textInputAction,
+    String? errorText,
+    CheckStatus? checkStatus,
+    Widget? checkButton,
     TextInputType? keyboardType,
     FocusNode? focusNode,
     bool obscureText = false,
     ValueChanged<String>? onFieldSubmitted,
   }) {
     final hasError =
-        (_submitted || _interactedFields.contains(label)) &&
-        !_isValidField(label, controller.text);
+        errorText != null ||
+        ((_submitted || _interactedFields.contains(label)) &&
+            validator(controller.text) != null);
+    final isConfirmed = checkStatus == null
+        ? _isValidField(label, controller.text)
+        : checkStatus == CheckStatus.available;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -252,42 +310,64 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          scrollPadding: EdgeInsets.zero,
-          controller: controller,
-          focusNode: focusNode,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          textInputAction: textInputAction,
-          onFieldSubmitted: onFieldSubmitted,
-          onChanged: onChanged,
-          validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.normal,
-              color: AppColors.gray,
-            ),
-            filled: true,
-            fillColor: hasError ? const Color(0xFFFFE0DE) : AppColors.lowGray,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 10,
-            ),
-            suffixIcon: controller.text.isEmpty
-                ? null
-                : Icon(
-                    _isValidField(label, controller.text)
-                        ? Icons.check_circle
-                        : Icons.error_outline,
-                    color: _isValidField(label, controller.text)
-                        ? AppColors.violet
-                        : Theme.of(context).colorScheme.error,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextFormField(
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                scrollPadding: EdgeInsets.zero,
+                controller: controller,
+                focusNode: focusNode,
+                obscureText: obscureText,
+                keyboardType: keyboardType,
+                textInputAction: textInputAction,
+                onFieldSubmitted: onFieldSubmitted,
+                onChanged: onChanged,
+                validator: (value) => validator(value) ?? errorText,
+                decoration: InputDecoration(
+                  errorText: errorText,
+                  hintText: hint,
+                  hintStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.normal,
+                    color: AppColors.gray,
                   ),
-          ),
+                  filled: true,
+                  fillColor: hasError
+                      ? const Color(0xFFFFE0DE)
+                      : AppColors.lowGray,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  suffixIcon:
+                      controller.text.isEmpty || (!hasError && !isConfirmed)
+                      ? null
+                      : Icon(
+                          isConfirmed
+                              ? Icons.check_circle
+                              : Icons.error_outline,
+                          color: isConfirmed
+                              ? AppColors.violet
+                              : Theme.of(context).colorScheme.error,
+                        ),
+                ),
+              ),
+            ),
+            if (checkButton != null) ...[const SizedBox(width: 8), checkButton],
+          ],
         ),
+        if (checkStatus == CheckStatus.available)
+          Text(
+            '사용할 수 있는 $label입니다.',
+            style: AppTextStyles.bodySmall.copyWith(color: Colors.green),
+          ),
+        if (checkStatus == CheckStatus.checking)
+          Text(
+            '$label 사용 가능 여부를 확인 중입니다.',
+            style: AppTextStyles.bodySmall.copyWith(color: Colors.blue),
+          ),
       ],
     );
   }
