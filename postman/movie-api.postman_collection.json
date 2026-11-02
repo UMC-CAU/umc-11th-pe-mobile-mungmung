@@ -1,0 +1,611 @@
+{
+  "info": {
+    "name": "Movie API - capture and requirements",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run 01-15 in order against your local server. Creates two members and one rating, then deletes only the created rating. Member accounts remain. 01 generates fresh email/nickname values and stores response IDs automatically. 02 and 03 are the remaining required screenshots."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "otherMemberId",
+      "value": ""
+    },
+    {
+      "key": "ratingId",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "nickname",
+      "value": ""
+    },
+    {
+      "key": "otherEmail",
+      "value": ""
+    },
+    {
+      "key": "otherNickname",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Signup success - capture",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members",
+        "description": "Expected HTTP 201. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"nickname\": \"{{nickname}}\",\n  \"password\": \"Strong123!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const run = Date.now().toString();",
+              "pm.collectionVariables.set(\"email\", \"capture\" + run + \"@example.com\");",
+              "pm.collectionVariables.set(\"nickname\", \"u\" + run.slice(-10));",
+              "pm.collectionVariables.set(\"otherEmail\", \"other\" + run + \"@example.com\");",
+              "pm.collectionVariables.set(\"otherNickname\", \"v\" + run.slice(-10));",
+              "pm.collectionVariables.unset(\"memberId\");",
+              "pm.collectionVariables.unset(\"otherMemberId\");",
+              "pm.collectionVariables.unset(\"ratingId\");"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(true);",
+              "  pm.expect(body.code).to.eql(\"COMMON201\");",
+              "});",
+              "if (pm.response.code === 201) pm.collectionVariables.set(\"memberId\", body.result.memberId);",
+              "pm.test(\"Password excluded\", () => pm.expect(body.result).not.to.have.property(\"password\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Signup invalid email - capture",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members",
+        "description": "Expected HTTP 400. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"invalid-email\",\n  \"nickname\": \"{{nickname}}\",\n  \"password\": \"Strong123!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(false);",
+              "  pm.expect(body.code).to.eql(\"COMMON400\");",
+              "});",
+              "pm.test(\"Null error result\", () => pm.expect(body.result).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Rating create success - capture",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members/{{memberId}}/ratings",
+        "description": "Expected HTTP 201. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"movieId\": 101,\n  \"score\": 5,\n  \"comment\": \"Great movie!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(true);",
+              "  pm.expect(body.code).to.eql(\"COMMON201\");",
+              "});",
+              "if (pm.response.code === 201) pm.collectionVariables.set(\"ratingId\", body.result);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Duplicate email",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members",
+        "description": "Expected HTTP 409. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"nickname\": \"{{otherNickname}}\",\n  \"password\": \"Strong123!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(false);",
+              "  pm.expect(body.code).to.eql(\"COMMON409\");",
+              "});",
+              "pm.test(\"Null error result\", () => pm.expect(body.result).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Duplicate nickname",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members",
+        "description": "Expected HTTP 409. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{otherEmail}}\",\n  \"nickname\": \"{{nickname}}\",\n  \"password\": \"Strong123!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(false);",
+              "  pm.expect(body.code).to.eql(\"COMMON409\");",
+              "});",
+              "pm.test(\"Null error result\", () => pm.expect(body.result).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Invalid score",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members/{{memberId}}/ratings",
+        "description": "Expected HTTP 400. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"movieId\": 102,\n  \"score\": 6,\n  \"comment\": \"Invalid score\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(false);",
+              "  pm.expect(body.code).to.eql(\"COMMON400\");",
+              "});",
+              "pm.test(\"Null error result\", () => pm.expect(body.result).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Duplicate rating",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members/{{memberId}}/ratings",
+        "description": "Expected HTTP 409. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"movieId\": 101,\n  \"score\": 4\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(false);",
+              "  pm.expect(body.code).to.eql(\"COMMON409\");",
+              "});",
+              "pm.test(\"Null error result\", () => pm.expect(body.result).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Signup another member",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members",
+        "description": "Expected HTTP 201. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{otherEmail}}\",\n  \"nickname\": \"{{otherNickname}}\",\n  \"password\": \"Strong123!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(true);",
+              "  pm.expect(body.code).to.eql(\"COMMON201\");",
+              "});",
+              "if (pm.response.code === 201) pm.collectionVariables.set(\"otherMemberId\", body.result.memberId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Rating update success",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members/{{memberId}}/ratings/{{ratingId}}",
+        "description": "Expected HTTP 200. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"score\": 4,\n  \"comment\": \"Updated review\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(true);",
+              "  pm.expect(body.code).to.eql(\"COMMON200\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Other member update forbidden",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members/{{otherMemberId}}/ratings/{{ratingId}}",
+        "description": "Expected HTTP 403. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"score\": 3,\n  \"comment\": \"Not the owner\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(false);",
+              "  pm.expect(body.code).to.eql(\"COMMON403\");",
+              "});",
+              "pm.test(\"Null error result\", () => pm.expect(body.result).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Other member delete forbidden",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/members/{{otherMemberId}}/ratings/{{ratingId}}",
+        "description": "Expected HTTP 403. Run requests in order."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(false);",
+              "  pm.expect(body.code).to.eql(\"COMMON403\");",
+              "});",
+              "pm.test(\"Null error result\", () => pm.expect(body.result).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 List ratings",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/members/{{memberId}}/ratings",
+        "description": "Expected HTTP 200. Run requests in order."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(true);",
+              "  pm.expect(body.code).to.eql(\"COMMON200\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Rating delete success",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/members/{{memberId}}/ratings/{{ratingId}}",
+        "description": "Expected HTTP 204 No Content with an empty body. Run requests in order."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "pm.test(\"Empty response body\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Deleted rating update not found",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/members/{{memberId}}/ratings/{{ratingId}}",
+        "description": "Expected HTTP 404. Run requests in order.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"score\": 4\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(false);",
+              "  pm.expect(body.code).to.eql(\"COMMON404\");",
+              "});",
+              "pm.test(\"Null error result\", () => pm.expect(body.result).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Deleted rating delete not found",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/members/{{memberId}}/ratings/{{ratingId}}",
+        "description": "Expected HTTP 404. Run requests in order."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const body = pm.response.json();",
+              "pm.test(\"Common response envelope\", () => {",
+              "  pm.expect(body).to.have.all.keys(\"isSuccess\", \"code\", \"message\", \"result\");",
+              "  pm.expect(body.isSuccess).to.eql(false);",
+              "  pm.expect(body.code).to.eql(\"COMMON404\");",
+              "});",
+              "pm.test(\"Null error result\", () => pm.expect(body.result).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

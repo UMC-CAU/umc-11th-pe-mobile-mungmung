@@ -1,6 +1,7 @@
 // src/entity/rating.entity.ts
 import {
   Column,
+  Unique,
   Entity,
   JoinColumn,
   ManyToOne,
@@ -10,6 +11,7 @@ import { BaseTimeEntity } from './base-time.entity.js';
 import { Member } from './member.entity.js';
 
 @Entity('rating')
+@Unique('UQ_rating_member_movie', ['member', 'movieId'])
 export class Rating extends BaseTimeEntity {
   @PrimaryGeneratedColumn({ name: 'rating_id' })
   ratingId: number;

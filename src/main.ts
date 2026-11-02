@@ -1,15 +1,10 @@
-// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
+import { configureApp } from './configure-app.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  app.enableCors({
-    origin: 'http://localhost:5173', // 이 출처에서 오는 요청만 허용
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
-  });
-
-  await app.listen(process.env.PORT ?? 3000);
+  configureApp(app);
+  await app.listen(3000);
 }
 bootstrap();

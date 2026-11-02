@@ -65,7 +65,7 @@
         if (!value) return;
         callApi(form, document.getElementById(`${kind}-result`), `/members/${kind}/${encodeURIComponent(value)}`, (data, target) => {
           const label = kind === 'nickname' ? '닉네임' : '이메일';
-          target.append(element('div', data.available ? `사용할 수 있는 ${label}이에요.` : `이미 사용 중인 ${label}이에요.`, `result ${data.available ? 'success' : 'error'}`));
+          target.append(element('div', data.result.available ? `사용할 수 있는 ${label}이에요.` : `이미 사용 중인 ${label}이에요.`, `result ${data.result.available ? 'success' : 'error'}`));
         });
       });
     }
@@ -74,8 +74,8 @@
       event.preventDefault();
       const id = document.getElementById('memberId').value;
       callApi(ratingsForm, document.getElementById('ratings-result'), `/members/${encodeURIComponent(id)}/ratings`, (data, target) => {
-        target.append(element('div', data.length ? `총 ${data.length}개의 영화 기록을 찾았어요.` : '아직 작성한 평점이 없어요.', 'result success'));
-        for (const rating of data) {
+        target.append(element('div', data.result.length ? `총 ${data.result.length}개의 영화 기록을 찾았어요.` : '아직 작성한 평점이 없어요.', 'result success'));
+        for (const rating of data.result) {
           const item = element('article', '', 'rating');
           item.append(element('strong', `영화 #${rating.movieId}`), element('span', `평점 ${rating.score}`, 'score'), element('p', rating.comment || '남긴 감상이 없어요.'));
           target.append(item);

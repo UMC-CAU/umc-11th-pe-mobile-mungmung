@@ -27,6 +27,30 @@
 
 ## Project setup
 
+### 회원·평점 API 실행 및 검증
+
+- `.env`의 `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`을 설정하고 MySQL(3306)을 실행합니다.
+- 기존 DB의 `member`, `rating` 테이블이 필요합니다. `synchronize: false`이므로 서버가 테이블이나 제약을 자동 생성하지 않습니다.
+- 회원의 이메일·닉네임에 UNIQUE 제약이 있어야 합니다. 평점의 `(member_id, movie_id)` UNIQUE 제약은 MySQL 클라이언트에서 해당 DB를 선택한 뒤 `source database/ensure-rating-unique.sql`로 확인·추가할 수 있습니다. 기존 중복 데이터가 있으면 데이터를 삭제하지 않고 실패합니다.
+- `npm install` 후 `npm run start:dev`로 실행합니다. 주소는 `http://localhost:3000`입니다.
+- `npm test`, `npm run test:e2e`로 검증합니다. HTTP 통합 테스트는 실제 컨트롤러·서비스·검증·응답 처리를 사용하며, DB 저장소만 메모리 구현으로 대체합니다. 실제 MySQL 연결·테이블·제약 적용 여부는 별도 확인이 필요합니다.
+
+| 요청 | 용도 | 성공 상태 |
+| --- | --- | --- |
+| `POST /members` | 회원가입: `email`, `nickname`, `password` | 201 |
+| `GET /members/email/:email` | 이메일 중복 확인 | 200 |
+| `GET /members/nickname/:nickname` | 닉네임 중복 확인 | 200 |
+| `GET /members/:memberId/ratings` | 회원 평점 조회 | 200 |
+| `POST /members/:memberId/ratings` | 등록: `movieId`, `score`, 선택적 `comment` | 201 |
+| `PATCH /members/:memberId/ratings/:ratingId` | 수정: `score`, 선택적 `comment` | 200 |
+| `DELETE /members/:memberId/ratings/:ratingId` | 삭제 | 204 (본문 없음) |
+
+삭제 성공은 204 No Content로 본문을 반환하지 않습니다. 나머지 응답은 `{ "isSuccess": true, "code": "COMMON200", "message": "...", "result": ... }` 형식입니다. 실패 시 `isSuccess`는 `false`, `result`는 `null`이며 `code`에 HTTP 상태 코드가 들어갑니다. 중복 확인의 `available`과 평점 목록은 `result` 안에 있습니다.
+
+닉네임은 앞뒤 공백 없이 2~12자, 비밀번호는 영문 대·소문자/숫자/지정 특수문자(`!@#$%^&*`)를 각각 포함하는 ASCII 8~72자입니다. 비밀번호는 bcrypt로 해시하며 회원 응답 DTO에는 포함하지 않습니다. 평점은 정수 1~5, 후기는 최대 500자이고 생략하거나 `null`로 설정할 수 있습니다. 수정 시 후기를 생략하면 `null`로 초기화합니다.
+
+수정·삭제는 경로의 `memberId`와 저장된 평점 소유자를 비교합니다. 이 비교는 요청된 체크리스트 범위이며, 로그인 인증을 대신하지는 않습니다.
+
 ```bash
 $ npm install
 ```
