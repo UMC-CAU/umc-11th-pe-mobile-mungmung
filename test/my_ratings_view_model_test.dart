@@ -17,7 +17,7 @@ RatingDto rating(int id, int movieId) => RatingDto.fromJson({
 });
 
 class Ratings extends RatingApiService {
-  Ratings() : super(Dio());
+  Ratings() : super(Dio(), Dio());
   final requests = <Completer<List<RatingDto>>>[];
   final memberIds = <int>[];
   @override

@@ -25,8 +25,7 @@ class TmdbMovieCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void openDetail() =>
-        context.push('/movies/${movie.id}', extra: movieForDetail(movie));
+    void openDetail() => context.push('/movies/${movie.id}', extra: movie);
 
     return GestureDetector(
       onTap: openDetail,

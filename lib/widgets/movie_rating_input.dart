@@ -1,0 +1,36 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:movielog/theme/app_colors.dart';
+
+class MovieRatingInput extends StatelessWidget {
+  const MovieRatingInput({
+    super.key,
+    required this.rating,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final double rating;
+  final ValueChanged<double> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    child: RatingBar(
+      initialRating: rating,
+      minRating: 1,
+      allowHalfRating: false,
+      ignoreGestures: !enabled,
+      itemCount: 5,
+      itemSize: 32,
+      itemPadding: const EdgeInsets.symmetric(horizontal: 4),
+      ratingWidget: RatingWidget(
+        full: const Icon(Icons.star, color: AppColors.violet),
+        half: const Icon(Icons.star_half, color: AppColors.violet),
+        empty: const Icon(Icons.star_border, color: AppColors.violet),
+      ),
+      onRatingUpdate: onChanged,
+    ),
+  );
+}

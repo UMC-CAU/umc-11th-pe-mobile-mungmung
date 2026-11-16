@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:movielog/data/services/member_check_service.dart';
+import 'package:movielog/data/services/sign_up_service.dart';
 import 'package:movielog/view_models/signup_view_model.dart';
 
-class ControlledChecks extends MemberCheckService {
+class ControlledChecks extends SignUpService {
   ControlledChecks() : super(Dio());
   final nickname = Completer<bool>();
   final email = Completer<bool>();

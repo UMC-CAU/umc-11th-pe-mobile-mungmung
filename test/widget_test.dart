@@ -1,25 +1,30 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:movielog/screens/signup_screen.dart';
+import 'package:movielog/screens/login_screen.dart';
+
+import 'fake_token_storage.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movielog/main.dart';
 
 void main() {
-  testWidgets('main entry opens signup from onboarding and returns', (
+  testWidgets('signed-out startup opens login, and signup returns there', (
     tester,
   ) async {
-    await tester.pumpWidget(const MovieLogApp());
+    dotenv.loadFromString(envString: 'TMDB_ACCESS_TOKEN=test');
+    await tester.pumpWidget(MovieLogApp(tokenStorage: FakeTokenStorage()));
     await tester.pumpAndSettle();
-    expect(find.text('영화의 순간을 기록하세요'), findsOneWidget);
-    expect(find.widgetWithText(ElevatedButton, '시작하기'), findsOneWidget);
+    expect(find.byType(LoginScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.widgetWithText(ElevatedButton, '시작하기'));
+    await tester.tap(find.text('회원가입'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byType(SignupScreen), findsOneWidget);
     expect(find.byType(TextFormField), findsNWidgets(3));
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(ElevatedButton, '시작하기'), findsOneWidget);
+    expect(find.byType(LoginScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

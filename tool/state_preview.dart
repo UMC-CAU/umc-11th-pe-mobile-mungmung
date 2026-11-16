@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:movielog/data/models/rating_dto.dart';
 import 'package:movielog/data/models/tmdb_movie_dto.dart';
-import 'package:movielog/data/services/member_check_service.dart';
+import 'package:movielog/data/services/sign_up_service.dart';
 import 'package:movielog/data/services/rating_api_service.dart';
 import 'package:movielog/data/services/tmdb_movie_service.dart';
 import 'package:movielog/screens/my_rating_screen.dart';
@@ -78,7 +78,7 @@ class StatePreviewApp extends StatelessWidget {
   );
 }
 
-class PreviewMemberChecks extends MemberCheckService {
+class PreviewMemberChecks extends SignUpService {
   PreviewMemberChecks() : super(Dio());
   @override
   Future<bool> checkNickname(String value) async {
@@ -94,7 +94,7 @@ class PreviewMemberChecks extends MemberCheckService {
 }
 
 class PreviewRatings extends RatingApiService {
-  PreviewRatings(this.status) : super(Dio());
+  PreviewRatings(this.status) : super(Dio(), Dio());
   final MyRatingsLoadStatus status;
   @override
   Future<List<RatingDto>> fetchMyRatings(int memberId) async {

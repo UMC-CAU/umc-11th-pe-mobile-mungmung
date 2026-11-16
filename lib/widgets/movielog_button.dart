@@ -8,12 +8,14 @@ class MovieLogButton extends StatelessWidget {
     required this.onPressed,
     this.isLoading = false,
     this.width,
+    this.pill = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
   final double? width;
+  final bool pill;
 
   bool get _disabled => isLoading || onPressed == null;
 
@@ -33,7 +35,7 @@ class MovieLogButton extends StatelessWidget {
           disabledForegroundColor: AppColors.white,
           foregroundColor: AppColors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(pill ? 24 : 12),
           ),
         ),
         child: isLoading

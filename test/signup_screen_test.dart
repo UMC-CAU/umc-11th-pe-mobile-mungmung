@@ -1,3 +1,7 @@
+import 'package:movielog/data/models/common_response.dart';
+import 'package:movielog/data/models/create_member_request.dart';
+import 'package:movielog/data/models/sign_up_models.dart';
+
 import 'dart:async';
 
 import 'package:movielog/widgets/movielog_button.dart';
@@ -5,10 +9,10 @@ import 'package:movielog/theme/app_theme.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:movielog/data/services/member_check_service.dart';
+import 'package:movielog/data/services/sign_up_service.dart';
 import 'package:movielog/screens/signup_screen.dart';
 
-class ChallengeChecks extends MemberCheckService {
+class ChallengeChecks extends SignUpService {
   ChallengeChecks() : super(Dio());
   int nicknameCalls = 0;
   int emailCalls = 0;
@@ -27,15 +31,28 @@ class ChallengeChecks extends MemberCheckService {
   }
 }
 
-class AvailableChecks extends MemberCheckService {
+class AvailableChecks extends SignUpService {
   AvailableChecks() : super(Dio());
+  @override
+  Future<CommonResponse<SignUpResult>> signUp(
+    CreateMemberRequest request,
+  ) async => CommonResponse(
+    isSuccess: true,
+    code: 'COMMON201',
+    message: '가입 완료',
+    result: SignUpResult(
+      memberId: 42,
+      email: request.email,
+      nickname: request.nickname,
+    ),
+  );
   @override
   Future<bool> checkNickname(String value) async => true;
   @override
   Future<bool> checkEmail(String value) async => true;
 }
 
-class SignupChecks extends MemberCheckService {
+class SignupChecks extends SignUpService {
   SignupChecks() : super(Dio());
   int nicknameCalls = 0;
   @override
@@ -118,11 +135,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     var completed = false;
+    int? memberId;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
         home: SignupScreen(
           memberCheckService: AvailableChecks(),
+          onMemberCreated: (id) => memberId = id,
           onSignupComplete: () => completed = true,
         ),
       ),
@@ -145,6 +164,7 @@ void main() {
     await tester.tap(submit);
     await tester.pumpAndSettle();
     expect(completed, isTrue);
+    expect(memberId, 42);
     expect(tester.takeException(), isNull);
   });
 

@@ -1,6 +1,8 @@
+import 'package:movielog/data/models/create_member_request.dart';
+import 'package:movielog/view_models/submit_status.dart';
 import 'package:provider/provider.dart';
 import 'package:movielog/core/network/movie_log_client.dart';
-import 'package:movielog/data/services/member_check_service.dart';
+import 'package:movielog/data/services/sign_up_service.dart';
 import 'package:movielog/view_models/signup_view_model.dart';
 import 'package:movielog/widgets/movielog_button.dart';
 import 'package:flutter/material.dart';
@@ -13,10 +15,12 @@ class SignupScreen extends StatefulWidget {
     super.key,
     this.onSignupComplete,
     this.memberCheckService,
+    this.onMemberCreated,
   });
 
   final VoidCallback? onSignupComplete;
-  final MemberCheckService? memberCheckService;
+  final ValueChanged<int>? onMemberCreated;
+  final SignUpService? memberCheckService;
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -36,14 +40,17 @@ class _SignupScreenState extends State<SignupScreen> {
   void initState() {
     super.initState();
     _viewModel = SignUpViewModel(
-      widget.memberCheckService ?? MemberCheckService(createMovieLogClient()),
+      widget.memberCheckService ?? SignUpService(createMovieLogClient()),
     );
   }
 
   bool _agreedToTerms = false;
   bool _submitted = false;
 
+  bool get _isSubmitting => _viewModel.submitStatus == SubmitStatus.submitting;
+
   bool get _canSubmit =>
+      !_isSubmitting &&
       _nicknameController.text.trim().length >= 2 &&
       _isValidEmail(_emailController.text.trim()) &&
       _passwordController.text.length >= 8 &&
@@ -65,12 +72,30 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _interactedFields.add(field));
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     setState(() => _submitted = true);
     final isFormValid = _formKey.currentState!.validate();
     if (!_canSubmit || !isFormValid) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    widget.onSignupComplete?.call();
+    await _viewModel.submit(
+      CreateMemberRequest(
+        email: _emailController.text,
+        password: _passwordController.text,
+        nickname: _nicknameController.text,
+      ),
+    );
+    if (!mounted) return;
+    final memberId = _viewModel.createdMemberId;
+    if (_viewModel.submitStatus == SubmitStatus.success && memberId != null) {
+      widget.onMemberCreated?.call(memberId);
+      widget.onSignupComplete?.call();
+      return;
+    }
+    final message = _viewModel.snackbarMessage;
+    if (message != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   void _closeScreen() {
@@ -83,8 +108,10 @@ class _SignupScreenState extends State<SignupScreen> {
     return ChangeNotifierProvider<SignUpViewModel>.value(
       value: _viewModel,
       child: Consumer<SignUpViewModel>(
-        builder: (context, viewModel, child) =>
-            _buildScreen(context, viewModel),
+        builder: (context, viewModel, child) => PopScope(
+          canPop: !_isSubmitting,
+          child: _buildScreen(context, viewModel),
+        ),
       ),
     );
   }
@@ -95,7 +122,7 @@ class _SignupScreenState extends State<SignupScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: _closeScreen,
+          onPressed: _isSubmitting ? null : _closeScreen,
         ),
         title: const Text('회원가입'),
       ),
@@ -158,7 +185,8 @@ class _SignupScreenState extends State<SignupScreen> {
                           isLoading:
                               viewModel.nicknameCheckStatus ==
                               CheckStatus.checking,
-                          onPressed: viewModel.canCheckNickname
+                          onPressed:
+                              !_isSubmitting && viewModel.canCheckNickname
                               ? () => viewModel.checkNickname(
                                   _nicknameController.text,
                                 )
@@ -193,7 +221,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           isLoading:
                               viewModel.emailCheckStatus ==
                               CheckStatus.checking,
-                          onPressed: viewModel.canCheckEmail
+                          onPressed: !_isSubmitting && viewModel.canCheckEmail
                               ? () =>
                                     viewModel.checkEmail(_emailController.text)
                               : null,
@@ -218,7 +246,11 @@ class _SignupScreenState extends State<SignupScreen> {
                           }
                           return null;
                         },
-                        onChanged: (_) => _refresh('비밀번호'),
+                        errorText: viewModel.passwordErrorText,
+                        onChanged: (_) {
+                          viewModel.onPasswordChanged();
+                          _refresh('비밀번호');
+                        },
                         onFieldSubmitted: (_) => _submit(),
                       ),
                       const Spacer(),
@@ -230,12 +262,16 @@ class _SignupScreenState extends State<SignupScreen> {
                           style: AppTextStyles.bodyMedium,
                         ),
                         value: _agreedToTerms,
-                        onChanged: (value) =>
-                            setState(() => _agreedToTerms = value ?? false),
+                        onChanged: _isSubmitting
+                            ? null
+                            : (value) => setState(
+                                () => _agreedToTerms = value ?? false,
+                              ),
                       ),
                       const SizedBox(height: AppSpacing.x2),
                       MovieLogButton(
                         label: '가입하기',
+                        isLoading: _isSubmitting,
                         width: double.infinity,
                         onPressed: _canSubmit ? _submit : null,
                       ),
@@ -251,7 +287,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             TextButton(
-                              onPressed: _closeScreen,
+                              onPressed: _isSubmitting ? null : _closeScreen,
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
@@ -296,9 +332,11 @@ class _SignupScreenState extends State<SignupScreen> {
         errorText != null ||
         ((_submitted || _interactedFields.contains(label)) &&
             validator(controller.text) != null);
-    final isConfirmed = checkStatus == null
-        ? _isValidField(label, controller.text)
-        : checkStatus == CheckStatus.available;
+    final isConfirmed =
+        !hasError &&
+        (checkStatus == null
+            ? _isValidField(label, controller.text)
+            : checkStatus == CheckStatus.available);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -318,6 +356,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 autovalidateMode: AutovalidateMode.onUserInteraction,
                 scrollPadding: EdgeInsets.zero,
                 controller: controller,
+                enabled: !_isSubmitting,
                 focusNode: focusNode,
                 obscureText: obscureText,
                 keyboardType: keyboardType,

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:movielog/app/movie_log_app.dart';
 export 'package:movielog/app/movie_log_app.dart';
 import 'package:movielog/models/movie.dart';
+import 'package:movielog/data/models/rating_dto.dart';
 export 'package:movielog/models/movie.dart';
 import 'package:movielog/screens/profile_screen.dart';
 import 'package:movielog/theme/app_colors.dart';
 import 'package:movielog/view_models/movie_home_view_model.dart';
+import 'package:movielog/view_models/auth_view_model.dart';
 import 'package:movielog/widgets/tmdb_movie_card.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
@@ -19,40 +20,25 @@ Future<void> main() async {
   runApp(const MovieLogApp());
 }
 
-class OnboardingScreen extends StatelessWidget {
-  const OnboardingScreen({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          children: [
-            const Spacer(),
-            SvgPicture.asset('assets/logos/movielog_logo.svg', width: 180),
-            const SizedBox(height: 24),
-            const Text(
-              '영화의 순간을 기록하세요',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => context.push('/signup'),
-                child: const Text('시작하기'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.navigationShell});
   final StatefulNavigationShell navigationShell;
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AuthViewModel>().loadMember();
+    });
+  }
+
+  StatefulNavigationShell get navigationShell => widget.navigationShell;
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: navigationShell,
@@ -276,7 +262,16 @@ class _MovieRatingBadge extends StatelessWidget {
 }
 
 class MovieDetailScreen extends StatefulWidget {
-  const MovieDetailScreen({super.key, required this.movie});
+  const MovieDetailScreen({
+    super.key,
+    required this.movie,
+    this.onRate,
+    this.sessionRating,
+    this.onDeleteRating,
+  });
+  final RatingDto? sessionRating;
+  final VoidCallback? onDeleteRating;
+  final VoidCallback? onRate;
   final Movie movie;
   @override
   State<MovieDetailScreen> createState() => _MovieDetailScreenState();
@@ -371,94 +366,70 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
       bottomSheet: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                  ),
-                  onPressed: () {
-                    setState(() => _favorite = !_favorite);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          _favorite ? '즐겨찾기에 추가했어요.' : '즐겨찾기에서 삭제했어요.',
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
                         ),
                       ),
-                    );
-                  },
-                  icon: Icon(
-                    _favorite ? Icons.bookmark : Icons.bookmark_border,
-                  ),
-                  label: Text(_favorite ? '즐겨찾기' : '즐겨찾기 추가'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
+                      onPressed: () {
+                        setState(() => _favorite = !_favorite);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              _favorite ? '즐겨찾기에 추가했어요.' : '즐겨찾기에서 삭제했어요.',
+                            ),
+                          ),
+                        );
+                      },
+                      icon: Icon(
+                        _favorite ? Icons.bookmark : Icons.bookmark_border,
+                      ),
+                      label: Text(_favorite ? '즐겨찾기' : '즐겨찾기 추가'),
                     ),
                   ),
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => MovieRatingInput(movieId: widget.movie.id),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                      ),
+                      onPressed: widget.onRate,
+                      icon: const Icon(Icons.rate_review),
+                      label: Text(
+                        widget.sessionRating == null ? '평점 남기기' : '평점 수정',
+                      ),
+                    ),
                   ),
-                  icon: const Icon(Icons.rate_review),
-                  label: const Text('평점 남기기'),
-                ),
+                ],
               ),
+              if (widget.sessionRating case final rating?)
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.star),
+                    title: Text('이번 세션의 내 평점 ${rating.score}/5'),
+                    subtitle: rating.comment == null
+                        ? null
+                        : Text(rating.comment!),
+                    trailing: IconButton(
+                      tooltip: '평점 삭제',
+                      onPressed: widget.onDeleteRating,
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
   }
-}
-
-class MovieRatingInput extends StatefulWidget {
-  const MovieRatingInput({super.key, required this.movieId});
-  final String movieId;
-  @override
-  State<MovieRatingInput> createState() => _MovieRatingInputState();
-}
-
-class _MovieRatingInputState extends State<MovieRatingInput> {
-  double _rating = 0;
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('평점 남기기'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text('이 영화는 어떠셨나요?'),
-        const SizedBox(height: 12),
-        RatingBar.builder(
-          initialRating: _rating,
-          allowHalfRating: true,
-          itemCount: 5,
-          itemBuilder: (_, _) =>
-              const Icon(Icons.star, color: AppColors.violet),
-          onRatingUpdate: (value) => setState(() => _rating = value),
-        ),
-        const SizedBox(height: 8),
-        Text(_rating == 0 ? '별점을 선택해 주세요' : '${_rating.toStringAsFixed(1)}점'),
-      ],
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => setState(() => _rating = 0),
-        child: const Text('초기화'),
-      ),
-      TextButton(onPressed: () => setState(() {}), child: const Text('다시 선택')),
-      ElevatedButton(
-        onPressed: _rating == 0 ? null : () => Navigator.pop(context),
-        child: const Text('완료'),
-      ),
-    ],
-  );
 }

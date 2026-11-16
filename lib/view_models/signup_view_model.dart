@@ -1,12 +1,15 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:movielog/data/services/member_check_service.dart';
+import 'package:movielog/data/services/sign_up_service.dart';
+
+import 'package:movielog/data/models/create_member_request.dart';
+import 'package:movielog/view_models/submit_status.dart';
 
 enum CheckStatus { idle, checking, available, duplicated, error }
 
 class SignUpViewModel extends ChangeNotifier {
   SignUpViewModel(this._service);
-  final MemberCheckService _service;
+  final SignUpService _service;
 
   CheckStatus nicknameCheckStatus = CheckStatus.idle;
   String? get nicknameErrorText => switch (nicknameCheckStatus) {
@@ -131,6 +134,54 @@ class SignUpViewModel extends ChangeNotifier {
       emailCheckStatus = CheckStatus.error;
     }
     if (!_disposed && version == _emailRequestVersion) notifyListeners();
+  }
+
+  SubmitStatus submitStatus = SubmitStatus.idle;
+  int? createdMemberId;
+  String? passwordErrorText;
+  String? snackbarMessage;
+
+  void onPasswordChanged() {
+    passwordErrorText = null;
+    notifyListeners();
+  }
+
+  Future<void> submit(CreateMemberRequest request) async {
+    if (_disposed || submitStatus == SubmitStatus.submitting) return;
+    submitStatus = SubmitStatus.submitting;
+    createdMemberId = null;
+    passwordErrorText = null;
+    snackbarMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _service.signUp(request);
+      if (_disposed) return;
+      final id = response.result?.memberId;
+      if (!response.isSuccess) {
+        submitStatus = SubmitStatus.error;
+        snackbarMessage = response.message;
+      } else if (id == null || id < 1) {
+        throw const FormatException('Invalid memberId');
+      } else {
+        createdMemberId = id;
+        submitStatus = SubmitStatus.success;
+      }
+    } on DioException catch (error) {
+      if (_disposed) return;
+      submitStatus = SubmitStatus.error;
+      final message = writeSignUpErrorMessage(error);
+      if (error.response?.statusCode == 400 && message.contains('비밀번호')) {
+        passwordErrorText = message;
+      } else {
+        snackbarMessage = message;
+      }
+    } catch (_) {
+      if (_disposed) return;
+      submitStatus = SubmitStatus.error;
+      snackbarMessage = '가입 결과를 확인하지 못했습니다. 새 요청 전에 서버 상태를 확인해 주세요.';
+    }
+    notifyListeners();
   }
 
   @override
