@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import type { Response } from 'express';
+import { ApiException } from '../exception/api.exception.js';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -36,7 +37,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (status === 500) this.logger.error(exception);
     response.status(status).json({
       isSuccess: false,
-      code: 'COMMON' + status,
+      code: exception instanceof ApiException ? exception.code : 'COMMON' + status,
       message: Array.isArray(message)
         ? message[0]
         : (message ?? '요청에 실패했습니다.'),
