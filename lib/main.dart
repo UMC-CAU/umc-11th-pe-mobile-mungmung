@@ -1,23 +1,43 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:movielog/core/network/tmdb_client.dart';
+import 'package:movielog/models/movie.dart';
+import 'package:movielog/theme/app_theme.dart';
+export 'package:movielog/models/movie.dart';
+import 'package:movielog/data/services/tmdb_movie_service.dart';
 import 'package:movielog/router/app_router.dart';
 import 'package:movielog/screens/profile_screen.dart';
 import 'package:movielog/theme/app_colors.dart';
-import 'package:movielog/theme/app_theme.dart';
+import 'package:movielog/view_models/movie_home_view_model.dart';
+import 'package:movielog/widgets/tmdb_movie_card.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
 
-void main() => runApp(const MovieLogApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
+  runApp(const MovieLogApp());
+}
 
 class MovieLogApp extends StatelessWidget {
   const MovieLogApp({super.key});
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-    title: 'MovieLog',
-    debugShowCheckedModeBanner: false,
-    theme: AppTheme.light,
-    routerConfig: AppRouter.router,
-  );
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        Provider<TmdbMovieService>(
+          create: (_) => TmdbMovieService(createTmdbClient()),
+        ),
+      ],
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        routerConfig: AppRouter.router,
+      ),
+    );
+  }
 }
 
 class OnboardingScreen extends StatelessWidget {
@@ -81,84 +101,9 @@ class AppShell extends StatelessWidget {
   );
 }
 
-class Movie {
-  const Movie({
-    required this.id,
-    required this.title,
-    required this.genre,
-    required this.year,
-    required this.poster,
-    required this.synopsis,
-    this.rating = 4.5,
-  });
-  final String id, title, genre, poster, synopsis;
-  final int year;
-  final double rating;
-}
-
-const mockMovies = <Movie>[
-  Movie(
-    id: 'starlight',
-    title: '별빛 아래 우리',
-    genre: '드라마',
-    year: 2023,
-    poster: 'assets/images/posters/hero_under_the_starlight.jpg',
-    rating: 4.8,
-    synopsis: '바쁜 현대 사회 속에서 서로의 존재를 잊고 살아가던 두 남녀가 우연한 계기로 천문대에서 만나게 됩니다. 별이 쏟아지는 밤하늘 아래, 그들이 나눈 조용한 약속은 과연 영원할 수 있을까요?',
-  ),
-  Movie(
-    id: 'void',
-    title: '우주의 끝에서',
-    genre: 'SF',
-    year: 2024,
-    poster: 'assets/images/posters/poster_echoes_of_the_void.jpg',
-    rating: 4.2,
-    synopsis: '끝없는 우주에서 자신의 길을 찾아 나서는 탐험가의 이야기.',
-  ),
-  Movie(
-    id: 'woods',
-    title: '기억의 숲',
-    genre: '애니메이션',
-    year: 2022,
-    poster: 'assets/images/posters/poster_whispering_woods.jpg',
-    rating: 4.9,
-    synopsis: '신비한 숲에서 잃어버린 기억을 찾아가는 따뜻한 모험.',
-  ),
-  Movie(
-    id: 'shadows',
-    title: '밤의 그림자',
-    genre: '스릴러',
-    year: 2024,
-    poster: 'assets/images/posters/poster_night_shadows.jpg',
-    rating: 3.8,
-    synopsis: '도시의 어두운 골목에 감춰진 비밀을 추적한다.',
-  ),
-  Movie(
-    id: 'afternoon',
-    title: '네 번째 오후',
-    genre: '로맨스',
-    year: 2023,
-    poster: 'assets/images/posters/poster_fourth_afternoon.jpg',
-    rating: 4.6,
-    synopsis: '엇갈린 오후의 약속이 두 사람의 일상을 바꾼다.',
-  ),
-  Movie(
-    id: 'abyss',
-    title: '심연의 방랑자',
-    genre: '액션',
-    year: 2021,
-    poster: 'assets/images/posters/poster_abyss_walker.jpg',
-    rating: 4.4,
-    synopsis: '위험한 여정 끝에서 마주한 마지막 선택.',
-  ),
-];
-Movie findMovieById(String id) => mockMovies.firstWhere(
-  (movie) => movie.id == id,
-  orElse: () => mockMovies.first,
-);
-
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: CommonAppBar(
@@ -171,41 +116,69 @@ class HomeScreen extends StatelessWidget {
       ],
     ),
     body: SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const SizedBox(height: 4),
-          const Text(
-            '오늘은 어떤\n영화를 볼까요?',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 18),
-          MovieCard(movie: mockMovies.first, featured: true),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                '인기 영화',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      child: Consumer<MovieHomeViewModel>(
+        builder: (context, viewModel, child) {
+          if (viewModel.status == MovieHomeLoadStatus.idle ||
+              viewModel.status == MovieHomeLoadStatus.loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (viewModel.status == MovieHomeLoadStatus.error) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(viewModel.message ?? '인기 영화를 불러오지 못했어요.'),
+                  TextButton(
+                    onPressed: viewModel.loadPopular,
+                    child: const Text('다시 시도'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => context.go('/movies'),
-                child: const Text('전체보기 ›'),
+            );
+          }
+          final movies = viewModel.popularMovies;
+          if (movies.isEmpty) {
+            return const Center(child: Text('표시할 인기 영화가 없어요.'));
+          }
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              const SizedBox(height: 4),
+              const Text(
+                '오늘은 어떤\n영화를 볼까요?',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 18),
+              TmdbMovieCard(movie: movies.first, featured: true),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '인기 영화',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go('/movies'),
+                    child: const Text('전체보기 ›'),
+                  ),
+                ],
+              ),
+              SizedBox(
+                height: 235,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: movies.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) => SizedBox(
+                    width: 145,
+                    child: TmdbMovieCard(movie: movies[i]),
+                  ),
+                ),
               ),
             ],
-          ),
-          SizedBox(
-            height: 235,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: mockMovies.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, i) =>
-                  SizedBox(width: 145, child: MovieCard(movie: mockMovies[i])),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     ),
   );
@@ -323,130 +296,6 @@ class _MovieRatingBadge extends StatelessWidget {
   );
 }
 
-class MoviesScreen extends StatelessWidget {
-  const MoviesScreen({super.key, required this.selectedGenres});
-  final Set<String> selectedGenres;
-  @override
-  Widget build(BuildContext context) {
-    final items = selectedGenres.isEmpty
-        ? mockMovies
-        : mockMovies.where((m) => selectedGenres.contains(m.genre)).toList();
-    return Scaffold(
-      appBar: CommonAppBar(
-        title: '영화',
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showGenreSheet(context),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) => GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: constraints.maxWidth > 600 ? 4 : 2,
-              childAspectRatio: .62,
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
-            ),
-            itemCount: items.length,
-            itemBuilder: (context, i) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: MovieCard(movie: items[i])),
-                const SizedBox(height: 7),
-                Text(
-                  items[i].title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '${items[i].year} · ${items[i].genre}',
-                  style: const TextStyle(color: AppColors.gray),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showGenreSheet(BuildContext context) {
-    final selected = selectedGenres.toSet();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: .55,
-          minChildSize: .35,
-          maxChildSize: .9,
-          builder: (context, controller) => Column(
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  '장르 필터',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: controller,
-                  children: _genres
-                      .map(
-                        (genre) => CheckboxListTile(
-                          title: Text(genre),
-                          value: selected.contains(genre),
-                          onChanged: (checked) => setSheetState(() {
-                            checked == true
-                                ? selected.add(genre)
-                                : selected.remove(genre);
-                          }),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final uri = selected.isEmpty
-                          ? '/movies'
-                          : '/movies?genre=${Uri.encodeComponent(selected.join(','))}';
-                      context.pop();
-                      context.go(uri);
-                    },
-                    child: const Text('확인'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-const _genres = ['드라마', 'SF', '애니메이션', '스릴러', '로맨스', '액션'];
-
 class MovieDetailScreen extends StatefulWidget {
   const MovieDetailScreen({super.key, required this.movie});
   final Movie movie;
@@ -471,7 +320,16 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             child: SizedBox(
               height: 430,
               width: double.infinity,
-              child: Image.asset(widget.movie.poster, fit: BoxFit.cover),
+              child: widget.movie.poster.isEmpty
+                  ? const Icon(Icons.image_not_supported_outlined)
+                  : widget.movie.poster.startsWith('https://')
+                  ? Image.network(
+                      widget.movie.poster,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) =>
+                          const Icon(Icons.broken_image_outlined),
+                    )
+                  : Image.asset(widget.movie.poster, fit: BoxFit.cover),
             ),
           ),
           SliverToBoxAdapter(
@@ -569,7 +427,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                   ),
                   onPressed: () => showDialog<void>(
                     context: context,
-                    builder: (_) => const MovieRatingInput(),
+                    builder: (_) => MovieRatingInput(movieId: widget.movie.id),
                   ),
                   icon: const Icon(Icons.rate_review),
                   label: const Text('평점 남기기'),
@@ -584,7 +442,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 }
 
 class MovieRatingInput extends StatefulWidget {
-  const MovieRatingInput({super.key});
+  const MovieRatingInput({super.key, required this.movieId});
+  final String movieId;
   @override
   State<MovieRatingInput> createState() => _MovieRatingInputState();
 }
